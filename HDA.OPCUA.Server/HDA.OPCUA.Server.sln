@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32804.467
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HDA.OPCUA.Server", "HDA.OPCUA.Server\HDA.OPCUA.Server.csproj", "{A357CF55-061F-4D7C-8B60-0783FB5B29F3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A357CF55-061F-4D7C-8B60-0783FB5B29F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A357CF55-061F-4D7C-8B60-0783FB5B29F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A357CF55-061F-4D7C-8B60-0783FB5B29F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A357CF55-061F-4D7C-8B60-0783FB5B29F3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E9FE78FF-5EFD-49B3-B254-D5541A540958}
+	EndGlobalSection
+EndGlobal
