@@ -25,7 +25,6 @@ namespace HDA.OPCUA.Server.Data
         }
 
         public DbSet<History> History { get; set; }
-        public DbSet<ModifiedHistory> ModifiedHistory { get; set; }
 
     }
 }

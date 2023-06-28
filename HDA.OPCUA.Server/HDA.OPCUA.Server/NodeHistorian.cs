@@ -34,8 +34,6 @@ namespace HDA.OPCUA.Server
             History = SqlHistory<OpcHistoryValue>
                      .Create(node.Id);
 
-            ModifiedHistory = SqlHistory<OpcModifiedHistoryValue>
-                     .Create(node.Id);
         }
 
         #endregion
@@ -74,11 +72,6 @@ namespace HDA.OPCUA.Server
         }
 
         public SqlHistory<OpcHistoryValue> History
-        {
-            get;
-        }
-
-        public SqlHistory<OpcModifiedHistoryValue> ModifiedHistory
         {
             get;
         }
@@ -123,9 +116,6 @@ namespace HDA.OPCUA.Server
                         {
                             History.Add(value);
 
-                            var modifiedValue = value.CreateModified(modificationInfo);
-                            ModifiedHistory.Add(modifiedValue);
-
                             result.Update(OpcStatusCode.GoodEntryInserted);
                         }
                     }
@@ -158,9 +148,6 @@ namespace HDA.OPCUA.Server
                     {
                         var value = History[time];
                         History.RemoveAt(time);
-
-                        var modifiedValue = value.CreateModified(modificationInfo);
-                        ModifiedHistory.Add(modifiedValue);
                     }
                     else
                     {
@@ -190,9 +177,6 @@ namespace HDA.OPCUA.Server
                     {
                         var value = History[timestamp];
                         History.RemoveAt(timestamp);
-
-                        var modifiedValue = value.CreateModified(modificationInfo);
-                        ModifiedHistory.Add(modifiedValue);
                     }
                     else
                     {
@@ -215,22 +199,12 @@ namespace HDA.OPCUA.Server
 
             lock (_syncRoot)
             {
-                if (options.HasFlag(OpcDeleteHistoryOptions.Modified))
-                {
-                    ModifiedHistory.RemoveRange(startTime, endTime);
-                }
-                else
-                {
-                    var values = History.Enumerate(startTime, endTime).ToArray();
-                    History.RemoveRange(startTime, endTime);
+                var values = History.Enumerate(startTime, endTime).ToArray();
+                History.RemoveRange(startTime, endTime);
 
-                    for (int index = 0; index < values.Length; index++)
-                    {
-                        var value = values[index];
-                        ModifiedHistory.Add(value.CreateModified(modificationInfo));
-
-                        results.Add(OpcStatusCode.Good);
-                    }
+                for (int index = 0; index < values.Length; index++)
+                {
+                    results.Add(OpcStatusCode.Good);
                 }
             }
 
@@ -245,14 +219,6 @@ namespace HDA.OPCUA.Server
         {
             lock (_syncRoot)
             {
-                if (options.HasFlag(OpcReadHistoryOptions.Modified))
-                {
-                    return ModifiedHistory
-                            .Enumerate(startTime, endTime)
-                            .Cast<OpcHistoryValue>()
-                            .ToArray();
-                }
-
                 return History
                         .Enumerate(startTime, endTime)
                         .ToArray();
@@ -281,9 +247,6 @@ namespace HDA.OPCUA.Server
                         {
                             var oldValue = History[value.Timestamp];
                             History.Replace(value);
-
-                            var modifiedValue = oldValue.CreateModified(modificationInfo);
-                            ModifiedHistory.Add(modifiedValue);
 
                             result.Update(OpcStatusCode.GoodEntryReplaced);
                         }
@@ -325,17 +288,11 @@ namespace HDA.OPCUA.Server
                             var oldValue = History[value.Timestamp];
                             History.Replace(value);
 
-                            var modifiedValue = oldValue.CreateModified(modificationInfo);
-                            ModifiedHistory.Add(modifiedValue);
-
                             result.Update(OpcStatusCode.GoodEntryReplaced);
                         }
                         else
                         {
                             History.Add(value);
-
-                            var modifiedValue = value.CreateModified(modificationInfo);
-                            ModifiedHistory.Add(modifiedValue);
 
                             result.Update(OpcStatusCode.GoodEntryInserted);
                         }
@@ -370,7 +327,7 @@ namespace HDA.OPCUA.Server
                 {
                     History.Add(value);
                 }
-                   
+
             }
         }
 

@@ -38,18 +38,7 @@ namespace HDA.OPCUA.Server
                         Value = value.Value.ToString(),
                         StatusCode = (long)value.Status.Code
                     });
-
-                    if (value is OpcModifiedHistoryValue modifiedValue)
-                    {
-                        _dbContext.ModifiedHistory.Add(new ModifiedHistory
-                        {
-                            ModificationTime = modifiedValue.ModificationTime,
-                            ModificationTimeValue = modifiedValue.ModificationTime.Ticks,
-                            ModificationType = (byte)modifiedValue.ModificationType,
-                            ModificationUserName = modifiedValue.ModificationUserName,
-                        });
-                    }
-
+                   
                     _dbContext.SaveChanges();
                     return true;
                 }
@@ -153,21 +142,6 @@ namespace HDA.OPCUA.Server
                 record.TimeStampValue = value.Timestamp.Ticks;
                 record.Value = value.Value.ToString();
                 record.StatusCode = (long)value.Status.Code;
-
-                if (value is OpcModifiedHistoryValue modifiedValue)
-                {
-                    var modifiedRecord = _dbContext.ModifiedHistory.FirstOrDefault(e => e.NodeId == _nodeId);
-
-                    if (record == null)
-                    {
-                        return false;
-                    }
-
-                    modifiedRecord.ModificationTime = modifiedValue.ModificationTime;
-                    modifiedRecord.ModificationTimeValue = modifiedValue.ModificationTime.Ticks;
-                    modifiedRecord.ModificationType = (byte)modifiedValue.ModificationType;
-                    modifiedRecord.ModificationUserName = modifiedValue.ModificationUserName;
-                }
 
                 _dbContext.SaveChanges();
                 return true;
