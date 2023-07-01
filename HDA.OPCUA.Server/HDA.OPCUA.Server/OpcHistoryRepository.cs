@@ -18,12 +18,6 @@ namespace HDA.OPCUA.Server
             _dbContext = new();
         }
 
-        private static bool IsModifiedHistory
-        {
-            get => typeof(T) == typeof(OpcModifiedHistoryValue);
-        }
-
-
         public bool Create(T value)
         {
             lock (_syncRoot)

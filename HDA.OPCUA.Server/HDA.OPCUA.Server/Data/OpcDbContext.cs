@@ -20,7 +20,7 @@ namespace HDA.OPCUA.Server.Data
         {
             if (optionsBuilder.IsConfigured == false)
             {
-                optionsBuilder.UseSqlServer(Configuration.ConnectionString);
+                optionsBuilder.UseSqlite(Configuration.ConnectionString);
             }
         }
 

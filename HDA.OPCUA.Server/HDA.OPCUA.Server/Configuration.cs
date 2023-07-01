@@ -2,6 +2,6 @@
 {
     public class Configuration
     {
-        public const string ConnectionString = @"Server=.\SQLEXPRESS;Database=OpcHistory;Integrated Security=true;Encrypt=False;";
+        public const string ConnectionString = @"Data Source=C:\Temp\OpcHistory.db;";
     }
 }
