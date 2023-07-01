@@ -5,12 +5,6 @@ namespace HDA.OPCUA.Server
 {
     public class NodeHistorian : IOpcNodeHistoryProvider
     {
-        #region ---------- Private readonly fields ----------
-
-        private readonly object _syncRoot;
-
-        #endregion
-
         #region ---------- Private fields ----------
 
         private bool _autoUpdateHistory;
@@ -22,18 +16,14 @@ namespace HDA.OPCUA.Server
         public NodeHistorian(OpcNodeManager owner, OpcVariableNode node)
             : base()
         {
-            Owner = owner;
-            Node = node;
+            Owner = owner ?? throw new ArgumentNullException($"Argument {nameof(owner)} is null"); 
+            Node = node ?? throw new ArgumentNullException($"Argument {nameof(node)} is null");
 
             Node.AccessLevel |= OpcAccessLevel.HistoryReadOrWrite;
             Node.UserAccessLevel |= OpcAccessLevel.HistoryReadOrWrite;
             Node.IsHistorizing = true;
 
-            _syncRoot = new object();
-
-            History = SqlHistory<OpcHistoryValue>
-                     .Create(node.Id);
-
+            History = new HistoryService(node.Id.ToString());
         }
 
         #endregion
@@ -44,34 +34,30 @@ namespace HDA.OPCUA.Server
         {
             get
             {
-                lock (_syncRoot)
-                    return _autoUpdateHistory;
+                return _autoUpdateHistory;
             }
 
             set
             {
-                lock (_syncRoot)
+                if (_autoUpdateHistory != value)
                 {
-                    if (_autoUpdateHistory != value)
-                    {
-                        _autoUpdateHistory = value;
+                    _autoUpdateHistory = value;
 
-                        if (_autoUpdateHistory)
-                        {
-                            Node.BeforeApplyChanges
-                                    += HandleNodeBeforeApplyChanges;
-                        }
-                        else
-                        {
-                            Node.BeforeApplyChanges
-                                    -= HandleNodeBeforeApplyChanges;
-                        }
+                    if (_autoUpdateHistory)
+                    {
+                        Node.BeforeApplyChanges
+                                += HandleNodeBeforeApplyChanges;
+                    }
+                    else
+                    {
+                        Node.BeforeApplyChanges
+                                -= HandleNodeBeforeApplyChanges;
                     }
                 }
             }
         }
 
-        public SqlHistory<OpcHistoryValue> History
+        public HistoryService History
         {
             get;
         }
@@ -97,32 +83,28 @@ namespace HDA.OPCUA.Server
         {
             var results = OpcStatusCollection.Create(OpcStatusCode.Good, values.Count);
 
-            lock (_syncRoot)
+            var expectedDataType = Node.DataTypeId;
+
+            for (int index = 0; index < values.Count; index++)
             {
-                var expectedDataType = Node.DataTypeId;
+                var result = results[index];
+                var value = OpcHistoryValue.Create(values[index]);
 
-                for (int index = 0; index < values.Count; index++)
+                if (value.DataTypeId == expectedDataType)
                 {
-                    var result = results[index];
-                    var value = OpcHistoryValue.Create(values[index]);
-
-                    if (value.DataTypeId == expectedDataType)
+                    if (History.Contains(value.Timestamp))
                     {
-                        if (History.Contains(value.Timestamp))
-                        {
-                            result.Update(OpcStatusCode.BadEntryExists);
-                        }
-                        else
-                        {
-                            History.Add(value);
-
-                            result.Update(OpcStatusCode.GoodEntryInserted);
-                        }
+                        result.Update(OpcStatusCode.BadEntryExists);
                     }
                     else
                     {
-                        result.Update(OpcStatusCode.BadTypeMismatch);
+                        History.Add(value);
+                        result.Update(OpcStatusCode.GoodEntryInserted);
                     }
+                }
+                else
+                {
+                    result.Update(OpcStatusCode.BadTypeMismatch);
                 }
             }
 
@@ -136,23 +118,19 @@ namespace HDA.OPCUA.Server
         {
             var results = OpcStatusCollection.Create(OpcStatusCode.Good, times.Count());
 
-            lock (_syncRoot)
+            int index = 0;
+
+            foreach (var time in times)
             {
-                int index = 0;
+                var result = results[index++];
 
-                foreach (var time in times)
+                if (History.Contains(time))
+                {                  
+                    History.RemoveAt(time);
+                }
+                else
                 {
-                    var result = results[index++];
-
-                    if (History.Contains(time))
-                    {
-                        var value = History[time];
-                        History.RemoveAt(time);
-                    }
-                    else
-                    {
-                        result.Update(OpcStatusCode.BadNoEntryExists);
-                    }
+                    result.Update(OpcStatusCode.BadNoEntryExists);
                 }
             }
 
@@ -166,22 +144,18 @@ namespace HDA.OPCUA.Server
         {
             var results = OpcStatusCollection.Create(OpcStatusCode.Good, values.Count);
 
-            lock (_syncRoot)
+            for (int index = 0; index < values.Count; index++)
             {
-                for (int index = 0; index < values.Count; index++)
-                {
-                    var timestamp = OpcHistoryValue.Create(values[index]).Timestamp;
-                    var result = results[index];
+                var timestamp = OpcHistoryValue.Create(values[index]).Timestamp;
+                var result = results[index];
 
-                    if (History.Contains(timestamp))
-                    {
-                        var value = History[timestamp];
-                        History.RemoveAt(timestamp);
-                    }
-                    else
-                    {
-                        result.Update(OpcStatusCode.BadNoEntryExists);
-                    }
+                if (History.Contains(timestamp))
+                {                  
+                    History.RemoveAt(timestamp);
+                }
+                else
+                {
+                    result.Update(OpcStatusCode.BadNoEntryExists);
                 }
             }
 
@@ -197,15 +171,12 @@ namespace HDA.OPCUA.Server
         {
             var results = new OpcStatusCollection();
 
-            lock (_syncRoot)
-            {
-                var values = History.Enumerate(startTime, endTime).ToArray();
-                History.RemoveRange(startTime, endTime);
+            var values = History.Enumerate(startTime, endTime).ToArray();
+            History.RemoveRange(startTime, endTime);
 
-                for (int index = 0; index < values.Length; index++)
-                {
-                    results.Add(OpcStatusCode.Good);
-                }
+            for (int index = 0; index < values.Length; index++)
+            {
+                results.Add(OpcStatusCode.Good);
             }
 
             return results;
@@ -217,12 +188,10 @@ namespace HDA.OPCUA.Server
                 DateTime? endTime,
                 OpcReadHistoryOptions options)
         {
-            lock (_syncRoot)
-            {
-                return History
-                        .Enumerate(startTime, endTime)
-                        .ToArray();
-            }
+
+            return History
+                    .Enumerate(startTime, endTime)
+                    .ToArray();
         }
 
         public OpcStatusCollection ReplaceHistory(
@@ -232,33 +201,28 @@ namespace HDA.OPCUA.Server
         {
             var results = OpcStatusCollection.Create(OpcStatusCode.Good, values.Count);
 
-            lock (_syncRoot)
+            var expectedDataTypeId = Node.DataTypeId;
+
+            for (int index = 0; index < values.Count; index++)
             {
-                var expectedDataTypeId = Node.DataTypeId;
+                var result = results[index];
+                var value = OpcHistoryValue.Create(values[index]);
 
-                for (int index = 0; index < values.Count; index++)
+                if (value.DataTypeId == expectedDataTypeId)
                 {
-                    var result = results[index];
-                    var value = OpcHistoryValue.Create(values[index]);
-
-                    if (value.DataTypeId == expectedDataTypeId)
+                    if (History.Contains(value.Timestamp))
                     {
-                        if (History.Contains(value.Timestamp))
-                        {
-                            var oldValue = History[value.Timestamp];
-                            History.Replace(value);
-
-                            result.Update(OpcStatusCode.GoodEntryReplaced);
-                        }
-                        else
-                        {
-                            result.Update(OpcStatusCode.BadNoEntryExists);
-                        }
+                        History.Update(value);
+                        result.Update(OpcStatusCode.GoodEntryReplaced);
                     }
                     else
                     {
-                        result.Update(OpcStatusCode.BadTypeMismatch);
+                        result.Update(OpcStatusCode.BadNoEntryExists);
                     }
+                }
+                else
+                {
+                    result.Update(OpcStatusCode.BadTypeMismatch);
                 }
             }
 
@@ -272,35 +236,29 @@ namespace HDA.OPCUA.Server
         {
             var results = OpcStatusCollection.Create(OpcStatusCode.Good, values.Count);
 
-            lock (_syncRoot)
+            var expectedDataTypeId = Node.DataTypeId;
+
+            for (int index = 0; index < values.Count; index++)
             {
-                var expectedDataTypeId = Node.DataTypeId;
+                var result = results[index];
+                var value = OpcHistoryValue.Create(values[index]);
 
-                for (int index = 0; index < values.Count; index++)
+                if (value.DataTypeId == expectedDataTypeId)
                 {
-                    var result = results[index];
-                    var value = OpcHistoryValue.Create(values[index]);
-
-                    if (value.DataTypeId == expectedDataTypeId)
+                    if (History.Contains(value.Timestamp))
                     {
-                        if (History.Contains(value.Timestamp))
-                        {
-                            var oldValue = History[value.Timestamp];
-                            History.Replace(value);
-
-                            result.Update(OpcStatusCode.GoodEntryReplaced);
-                        }
-                        else
-                        {
-                            History.Add(value);
-
-                            result.Update(OpcStatusCode.GoodEntryInserted);
-                        }
+                        History.Update(value);
+                        result.Update(OpcStatusCode.GoodEntryReplaced);
                     }
                     else
                     {
-                        result.Update(OpcStatusCode.BadTypeMismatch);
+                        History.Add(value);
+                        result.Update(OpcStatusCode.GoodEntryInserted);
                     }
+                }
+                else
+                {
+                    result.Update(OpcStatusCode.BadTypeMismatch);
                 }
             }
 
@@ -321,13 +279,12 @@ namespace HDA.OPCUA.Server
 
                 if (History.Contains(value.Timestamp))
                 {
-                    History.Replace(value);
+                    History.Update(value);
                 }
                 else
                 {
                     History.Add(value);
                 }
-
             }
         }
 
